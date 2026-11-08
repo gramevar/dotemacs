@@ -129,6 +129,20 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
         save-place-forget-unreadable-files t)
   )
 #+end_src
+*** Savehist
+#+begin_src elisp
+(use-package savehist
+  :init (savehist-mode 1)
+  :config
+  ;; Savehist file
+  (setq savehist-file (expand-file-name ".history" default-directory))
+
+  ;; Autosave interval
+  (setq savehist-autosave-interval 60)
+
+  ;; History length
+  (setq history-length 100))
+#+end_src
 *** Electric pair
 #+begin_src elisp
 (use-package electric
