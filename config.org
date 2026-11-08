@@ -240,44 +240,41 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
          ("C-c r b" . org-roam-buffer-toggle)
          ("C-c r c" . org-roam-capture))
   :init
-  (org-roam-db-autosync-mode 1)
-  :config
-  (let* ((dir "~/org-roam"))
+  (let* ((dir (file-truename "~/org-roam")))
     (unless (file-exists-p dir)
       (make-directory dir))
+    (setq org-roam-directory dir))
+  (org-roam-db-autosync-mode 1)
+  :config
+  ;; garbage collection
+  (setq org-roam-db-gc-threshold most-positive-fixnum)
 
-    ;; org-roam directory
-    (setq org-roam-directory dir)
+  ;; enable completion
+  (setq org-roam-completion-everywhere t)
 
-    ;; garbage collection
-    (setq org-roam-db-gc-threshold most-positive-fixnum)
+  ;; display buffer
+  (add-to-list 'display-buffer-alist
+               '("\\*org-roam\\*"
+                 (display-buffer-in-side-window)
+                 (side . right)
+                 (slot . 0)
+                 (window-width . 0.33)
+                 (window-parameters . ((no-other-window . t)))))
 
-    ;; enable completion
-    (setq org-roam-completion-everywhere t)
+  ;; org-roam node display
+  (setq org-roam-node-display-template
+        (concat "${title:*} "
+                (propertize "${tags:20}" 'face 'org-tag)))
 
-    ;; display buffer
-    (add-to-list 'display-buffer-alist
-                 '("\\*org-roam\\*"
-                   (display-buffer-in-side-window)
-                   (side . right)
-                   (slot . 0)
-                   (window-width . 0.33)
-                   (window-parameters . ((no-other-window . t)))))
+  ;; Disable automatic update of the database on save
+  (setq org-roam-db-update-on-save nil)
 
-    ;; org-roam node display
-    (setq org-roam-node-display-template
-          (concat "${title:*} "
-                  (propertize "${tags:20}" 'face 'org-tag)))
-
-    ;; Disable automatic update of the database on save
-    (setq org-roam-db-update-on-save nil)
-
-    ;; org-roam capture templates
-    (setq org-roam-capture-templates
-          '(("n" "note" plain "%?"
-             :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
-                                "#+title: ${title}\n")
-             :unnarrowed t)))))
+  ;; org-roam capture templates
+  (setq org-roam-capture-templates
+        '(("n" "note" plain "%?"
+           :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
+                              "#+title: ${title}\n")
+           :unnarrowed t)))))
 #+end_src
 **** Org-roam-protocol
 #+begin_src elisp
