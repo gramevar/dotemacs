@@ -412,6 +412,12 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
   (setq tramp-default-method "sshx"
         tramp-use-scp-direct-remote-copying t))
 #+end_src
+** External
+*** ef-themes
+#+begin_src elisp
+(use-package ef-themes
+  :init (load-theme 'ef-day t))
+#+end_src
 * Sources
 1. https://kristofferbalintona.me/articles/surprisingly-emacs-on-android-is-pretty-good/
 2. https://www.orgroam.com/manual.html
