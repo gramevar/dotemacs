@@ -97,7 +97,10 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
   ;; Styling
   :preface
   (defvar font-height 90)
-  (setq font-name "Monospace")
+  (setq font-name (let* ((font "Hack Nerd Font"))
+                    (if (find-font (font-spec :name font))
+                        font
+                      "Monospace")))
   :custom-face
   (default ((t (:family ,font-name :height ,font-height))))
   (fixed-pitch ((t (:family ,font-name :height ,font-height))))
