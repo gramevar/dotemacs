@@ -6,6 +6,10 @@
 #+begin_example
 git clone https://github.com/gramevar/dotemacs ~/.config/emacs
 #+end_example
+* Lexical binding
+#+begin_src elisp
+;; -*- lexical-binding: t; -*-
+#+end_src
 * Android                                                           :android:
 #+begin_src elisp
 (defun android-p ()
@@ -37,70 +41,70 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
 ** Builtin
 *** Emacs                                                             :emacs:
 #+begin_src elisp
-  (use-package emacs
-    :init
-    (global-visual-line-mode 1)
-    (global-auto-revert-mode 1)
-    :bind (("M-SPC" . toggle-input-method))
-    :config
-    ;; Enable lexical binding
-    (setq lexical-binding t)
+(use-package emacs
+  :init
+  (global-visual-line-mode 1)
+  (global-auto-revert-mode 1)
+  :bind (("M-SPC" . toggle-input-method))
+  :config
+  ;; Enable lexical binding
+  (setq lexical-binding t)
 
-    ;; Allow to use symlinks
-    (setq find-file-visit-truename t)
+  ;; Allow to use symlinks
+  (setq find-file-visit-truename t)
 
-    ;; Scroll step
-    (setq scroll-step 1)
+  ;; Scroll step
+  (setq scroll-step 1)
 
-    ;; Line numbers display
-    (setq line-number-display-limit large-file-warning-threshold
-          line-number-display-limit-width 200)
+  ;; Line numbers display
+  (setq line-number-display-limit large-file-warning-threshold
+        line-number-display-limit-width 200)
 
-    ;; Short confirm
-    (setq use-short-answers t)
+  ;; Short confirm
+  (setq use-short-answers t)
 
-    ;; Default input method
-    (setq default-input-method "russian-computer")
+  ;; Default input method
+  (setq default-input-method "russian-computer")
 
-    ;; Tabs
-    (setq tab-always-indent 'complete
-          indent-tabs-mode nil)
+  ;; Tabs
+  (setq tab-always-indent 'complete
+        indent-tabs-mode nil)
 
-    ;; Native compilation
-    (setq native-comp-speed 2
-          load-prefer-newer t)
+  ;; Native compilation
+  (setq native-comp-speed 2
+        load-prefer-newer t)
 
-    ;; Cursor
-    (setq cursor-type 'bar)
+  ;; Cursor
+  (setq cursor-type 'bar)
 
-    ;; Display buffer
-    (setq display-buffer-alist
+  ;; Display buffer
+  (setq display-buffer-alist
         '(("\\*Help"
-             (display-buffer-same-window))
-            (("\\*Warnings")
-             (display-buffer-no-window))
-            ("\\*Man"
-             (display-buffer-same-window))
-            ("\\*Async .*\\*"
-             (display-buffer-no-window))))
+           (display-buffer-same-window))
+          (("\\*Warnings")
+           (display-buffer-no-window))
+          ("\\*Man"
+           (display-buffer-same-window))
+          ("\\*Async .*\\*"
+           (display-buffer-no-window))))
 
-    ;; Android-specific
-    (when (and (= emacs-major-version 30) (android-p))
-      (touch-screen-set-point-commands (mouse-set-point))
-      (setq tool-bar-position 'bottom)
-      (setq touch-screen-display-keyboard t))
+  ;; Android-specific
+  (when (and (= emacs-major-version 30) (android-p))
+    (touch-screen-set-point-commands (mouse-set-point))
+    (setq tool-bar-position 'bottom)
+    (setq touch-screen-display-keyboard t))
 
-    ;; Styling
-    :preface
-    (defvar font-height 90)
-    (setq font-name "Monospace")
-    :custom-face
-    (default ((t (:family ,font-name :height ,font-height))))
-    (fixed-pitch ((t (:family ,font-name :height ,font-height))))
-    (fixed-pitch-serif ((t (:family ,font-name :height ,font-height))))
-    (variable-pitch ((t (:family ,font-name :height ,font-height))))
-    (variable-pitch-text ((t (:family ,font-name :height ,font-height))))
-    )
+  ;; Styling
+  :preface
+  (defvar font-height 90)
+  (setq font-name "Monospace")
+  :custom-face
+  (default ((t (:family ,font-name :height ,font-height))))
+  (fixed-pitch ((t (:family ,font-name :height ,font-height))))
+  (fixed-pitch-serif ((t (:family ,font-name :height ,font-height))))
+  (variable-pitch ((t (:family ,font-name :height ,font-height))))
+  (variable-pitch-text ((t (:family ,font-name :height ,font-height))))
+  )
 #+end_src
 *** Which key
 #+begin_src elisp
@@ -137,6 +141,11 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
   ;; org directory
   (setq org-directory (file-truename "~/org"))
 
+  ;; Indentation
+  (setq org-edit-src-content-indentation 0)
+  (setq org-src-preserve-indentation t)
+  (setq org-src-tab-acts-natively t)
+
   ;; tags
   (setq org-use-tag-inheritance t)
 
@@ -161,14 +170,14 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
   :ensure nil
   :config
   (setq org-capture-templates
-      `(("c" "Контакты" entry (file "contacts.org")
-         "* %^{Name}\n:ID: 1\n:NUMBER: %^{Phone}")
-        ("t" "Задачи" entry (file+headline "todo.org" "Working")
-         "* TODO %?")
-        ("w" "Определение слова" entry (file "words.org")
-         "* %^{Слово}\n%?")
-        ("j" "Дневник" entry (file+olp+datetree "journal.org")
-         "* %^{Title}\n:PROPERTIES:\n:TIME: %<%H:%M:%S>\n:END:\n%?\n"))))
+        `(("c" "Контакты" entry (file "contacts.org")
+           "* %^{Name}\n:ID: 1\n:NUMBER: %^{Phone}")
+          ("t" "Задачи" entry (file+headline "todo.org" "Working")
+           "* TODO %?")
+          ("w" "Определение слова" entry (file "words.org")
+           "* %^{Слово}\n%?")
+          ("j" "Дневник" entry (file+olp+datetree "journal.org")
+           "* %^{Title}\n:PROPERTIES:\n:TIME: %<%H:%M:%S>\n:END:\n%?\n"))))
 #+end_src
 **** ID
 #+begin_src elisp
@@ -178,7 +187,7 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
   (setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id
         org-id-method 'org
         org-id-link-consider-parent-id t)
-)
+  )
 #+end_src
 **** Agenda
 #+begin_src elisp
@@ -277,10 +286,10 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
 
     ;; org-roam dailies capture templates
     (setq org-roam-dailies-capture-templates
-      '(("d" "daily" entry
-         "* %?"
-         :target (file+head "%<%Y-%m-%d>.org"
-                            "#+title: %<%Y-%m-%d>\n"))))))
+          '(("d" "daily" entry
+             "* %?"
+             :target (file+head "%<%Y-%m-%d>.org"
+                                "#+title: %<%Y-%m-%d>\n"))))))
 #+end_src
 *** Ibuffer
 #+begin_src elisp
