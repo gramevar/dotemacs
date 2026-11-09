@@ -45,7 +45,8 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
   :init
   (global-visual-line-mode 1)
   (global-auto-revert-mode 1)
-  :bind (("M-SPC" . toggle-input-method))
+  :bind (("M-SPC" . toggle-input-method)
+         ("C-g" . keyboard-escape-quit))
   :config
   ;; Enable lexical binding
   (setq lexical-binding t)
