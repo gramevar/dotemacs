@@ -4,6 +4,8 @@ org-roam.db
 
 backup/
 
+custom.el
+
 newsticker/
 bookmarks*
 network-security*
