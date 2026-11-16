@@ -443,13 +443,6 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
   (setq newsticker-retrieval-interval 10)
 
   (setq newsticker-url-list-defaults nil)
-
-  ;; Groups
-  (setq newsticker-groups
-	'(("Экономика"
-	   ("МосБиржа: Итоги торгов"))))
-  (setq newsticker-url-list
-	'(("МосБиржа: Итоги торгов" "https://www.moex.com/export/news.aspx?cat=100" nil nil nil)))
   )
 #+end_src
 ***** Org-roam                                                     :org:roam:
