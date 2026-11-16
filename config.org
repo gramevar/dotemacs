@@ -1,6 +1,6 @@
-#+title: Multiple configuration Emacs
+#+title: Emacs configuration
 #+author: gramevar
-#+options: show5levels
+#+startup: show5levels
 #+property: header-args :async yes :noweb yes :results none
 * How to install
 #+begin_example
@@ -26,68 +26,94 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
   (eq 'system-type 'windows-nt))
 #+end_src
 * Package management                                                :package:
+** Elpaca
+*** Installer
 #+begin_src elisp
-(require 'package)
-(setq package-archives
-      '(("gnu" . "https://elpa.gnu.org/packages/")
-        ("melpa" . "https://stable.melpa.org/packages/")))
-(package-initialize)
-(unless (package-installed-p 'use-package)
-  (package-refresh-contents t)
-  (package-install 'use-package))
+(defvar elpaca-installer-version 0.12)
+(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
+(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
+(defvar elpaca-sources-directory (expand-file-name "sources/" elpaca-directory))
+(defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
+			      :ref nil :depth 1 :inherit ignore
+			      :files (:defaults "elpaca-test.el" (:exclude "extensions"))
+			      :build (:not elpaca-activate)))
+(let* ((repo  (expand-file-name "elpaca/" elpaca-sources-directory))
+       (build (expand-file-name "elpaca/" elpaca-builds-directory))
+       (order (cdr elpaca-order))
+       (default-directory repo))
+  (add-to-list 'load-path (if (file-exists-p build) build repo))
+  (unless (file-exists-p repo)
+    (make-directory repo t)
+    (when (<= emacs-major-version 28) (require 'subr-x))
+    (condition-case-unless-debug err
+	(if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
+		  ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
+						  ,@(when-let* ((depth (plist-get order :depth)))
+						      (list (format "--depth=%d" depth) "--no-single-branch"))
+						  ,(plist-get order :repo) ,repo))))
+		  ((zerop (call-process "git" nil buffer t "checkout"
+					(or (plist-get order :ref) "--"))))
+		  (emacs (concat invocation-directory invocation-name))
+		  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
+					"--eval" "(byte-recompile-directory \".\" 0 'force)")))
+		  ((require 'elpaca))
+		  ((elpaca-generate-autoloads "elpaca" repo)))
+	    (progn (message "%s" (buffer-string)) (kill-buffer buffer))
+	  (error "%s" (with-current-buffer buffer (buffer-string))))
+      ((error) (warn "%s" err) (delete-directory repo 'recursive))))
+  (unless (require 'elpaca-autoloads nil t)
+    (require 'elpaca)
+    (elpaca-generate-autoloads "elpaca" repo)
+    (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
+(add-hook 'after-init-hook #'elpaca-process-queues)
+(elpaca `(,@elpaca-order))
+#+end_src
+*** elpaca-use-package
+#+begin_src elisp
+(elpaca elpaca-use-package
+  (elpaca-use-package-mode))
 (setq use-package-always-ensure t
       use-package-compute-statistics t)
 #+end_src
-** Builtin
-*** Emacs                                                             :emacs:
+*** elpaca-no-symlink-mode
+#+begin_src elisp
+(when (eq system-type 'windows-nt)
+  (elpaca-no-symlink-mode))
+#+end_src
+*** Packages
+**** Builtin
+***** Emacs                                                           :emacs:
 #+begin_src elisp
 (use-package emacs
   :init
   (global-visual-line-mode 1)
   (global-auto-revert-mode 1)
   :bind (("M-SPC" . toggle-input-method)
-         ("C-g" . keyboard-escape-quit))
+	 ("C-g" . keyboard-escape-quit)
+	 ("C-. v" . view-mode)
+	 )
   :config
-  ;; Enable lexical binding
-  (setq lexical-binding t)
-
-  ;; Allow to use symlinks
-  (setq find-file-visit-truename t)
-
-  ;; Scroll step
-  (setq scroll-step 1)
-
-  ;; Line numbers display
-  (setq line-number-display-limit large-file-warning-threshold
-        line-number-display-limit-width 200)
-
-  ;; Short confirm
-  (setq use-short-answers t)
-
-  ;; Default input method
-  (setq default-input-method "russian-computer")
-
-  ;; Tabs
-  (setq tab-always-indent 'complete
-        indent-tabs-mode nil)
-
-  ;; Native compilation
-  (setq native-comp-speed 2
-        load-prefer-newer t)
-
-  ;; Cursor
-  (setq cursor-type 'bar)
+  ;; Unbind keys
+  (unbind-key "C-v")
+  (unbind-key "<insert>")
+  (unbind-key "<insertchar>")
 
   ;; Display buffer
   (setq display-buffer-alist
-        '(("\\*Help"
-           (display-buffer-same-window))
-          (("\\*Warnings")
-           (display-buffer-no-window))
-          ("\\*Man"
-           (display-buffer-same-window))
-          ("\\*Async .*\\*"
-           (display-buffer-no-window))))
+	'(("\\*Help"
+	   (display-buffer-same-window))
+	  (("\\*Warnings")
+	   (display-buffer-no-window))
+	  ("\\*Man"
+	   (display-buffer-same-window))
+	  ("\\*Async .*\\*"
+	   (display-buffer-no-window))))
+
+  ;; Backup files
+  (let* ((backup-dir (expand-file-name "backup" user-emacs-directory)))
+    (setq delete-old-version t
+	  backup-directory-alist
+	  `(("." . ,backup-dir))))
 
   ;; Android-specific
   (when (and (= emacs-major-version 30) (android-p))
@@ -95,42 +121,87 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
     (setq tool-bar-position 'bottom)
     (setq touch-screen-display-keyboard t))
 
-  ;; Styling
-  :preface
-  (defvar font-height 90)
-  (setq font-name (let* ((font "Hack Nerd Font"))
-                    (if (find-font (font-spec :name font))
-                        font
-                      "Monospace")))
-  :custom-face
-  (default ((t (:family ,font-name :height ,font-height))))
-  (fixed-pitch ((t (:family ,font-name :height ,font-height))))
-  (fixed-pitch-serif ((t (:family ,font-name :height ,font-height))))
-  (variable-pitch ((t (:family ,font-name :height ,font-height))))
-  (variable-pitch-text ((t (:family ,font-name :height ,font-height))))
   )
 #+end_src
-*** Which key
+***** View-mode                                                        :view:
+#+begin_src elisp
+(use-package view-mode
+  :ensure nil
+  :bind ( :map view-mode-map
+	  ("q" . read-only-mode)
+	  ("n" . next-line)
+	  ("M-n" . end-of-buffer)
+	  ("M-p" . beginning-of-buffer)
+	  ("p" . previous-line)
+	  ))
+#+end_src
+***** Mode-line
+#+begin_src elisp
+(use-package emacs
+  :custom-face
+  (mode-line ((t (mode-line :height 90))))
+  :config
+  (setq-default mode-line-format
+	'(" "
+	 (:eval (propertize "%b"
+			      'face (when (buffer-modified-p)
+				      'bold)))
+	 " "
+	 (:eval (propertize (if buffer-read-only
+				"RO"
+			      "") 'face 'bold))
+	  mode-line-format-right-align
+	  (:eval (propertize "%m"
+			     'face 'bold))
+	  " "
+	  "%l:%c"
+	  )))
+#+end_src
+***** Which key
 #+begin_src elisp
 (use-package which-key
   :init
   (which-key-mode 1))
 #+end_src
-*** Whitespace
+***** Frame
+#+begin_src elisp
+(use-package frame
+  :ensure nil
+  :config
+  (let* ((font "Source Code Pro")
+	 (height 105)
+	 (styles '(default
+		   variable-pitch
+		   variable-pitch-text
+		   fixed-pitch
+		   fixed-pitch-serif)))
+    (dolist (i styles)
+      (set-face-attribute i nil
+			  :height height
+			  :family font))
+    )
+  )
+#+end_src
+***** Whitespace
 #+begin_src elisp
 (use-package whitespace
   :hook (after-save . whitespace-cleanup))
 #+end_src
-*** Saveplace
+***** Saveplace
 #+begin_src elisp
 (use-package saveplace
   :init (save-place-mode 1)
   :config
   (setq save-place-file (expand-file-name "saveplace" default-directory)
-        save-place-forget-unreadable-files t)
+	save-place-forget-unreadable-files t)
   )
 #+end_src
-*** Savehist
+***** Recentf
+#+begin_src elisp
+(use-package recentf
+  :init (recentf-mode 1))
+#+end_src
+***** Savehist
 #+begin_src elisp
 (use-package savehist
   :init (savehist-mode 1)
@@ -144,17 +215,17 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
   ;; History length
   (setq history-length 100))
 #+end_src
-*** Electric pair
+***** Electric pair
 #+begin_src elisp
 (use-package electric
   :init (electric-pair-mode 1))
 #+end_src
-*** Org                                                                 :org:
+***** Org                                                               :org:
 #+begin_src elisp
 (use-package org
   :bind (:map org-mode-map
-              ("C-c I" . org-indent-block)
-              ("C-c e" . org-babel-execute-buffer))
+	      ("C-c I" . org-indent-block)
+	      ("C-c e" . org-babel-execute-buffer))
   :config
   ;; org directory
   (setq org-directory (file-truename "~/org"))
@@ -169,57 +240,71 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
 
   ;; priority
   (setq org-priority-highest ?A
-        org-priority-default ?B
-        org-priority-lowest  ?C)
+	org-priority-default ?B
+	org-priority-lowest  ?C)
 
   ;; todo
   (setq org-treat-S-cursor-todo-selection-as-state-change nil
-        org-treat-insert-todo-heading-as-state-change t)
+	org-treat-insert-todo-heading-as-state-change t)
   (setq org-enforce-todo-dependencies t
-        org-use-fast-todo-selection 'expert
-        org-todo-keywords
-        '((sequence "PROJ(p)" "NEXT(n)" "TODO(t)" "|")
-          (sequence "|" "DONE(d!)" "WAIT(w@/!)")))
+	org-use-fast-todo-selection 'expert
+	org-todo-keywords
+	'((sequence "PROJ(p)" "NEXT(n)" "TODO(t)" "|")
+	  (sequence "|" "DONE(d!)" "WAIT(w@/!)")))
   )
 #+end_src
-**** Capture
+****** Capture
 #+begin_src elisp
 (use-package org-capture
   :ensure nil
   :config
   (setq org-capture-templates
-        `(("c" "Контакты" entry (file "contacts.org")
-           "* %^{Name}\n:ID: 1\n:NUMBER: %^{Phone}")
-          ("t" "Задачи" entry (file+headline "todo.org" "Working")
-           "* TODO %?")
-          ("w" "Определение слова" entry (file "words.org")
-           "* %^{Слово}\n%?")
-          ("j" "Дневник" entry (file+olp+datetree "journal.org")
-           "* %^{Title}\n:PROPERTIES:\n:TIME: %<%H:%M:%S>\n:END:\n%?\n"))))
+	`(("c" "Контакты" entry (file "contacts.org")
+	   "* %^{Name}\n:ID: 1\n:NUMBER: %^{Phone}")
+	  ("t" "Задачи" entry (file+headline "todo.org" "Working")
+	   "* TODO %?")
+	  ("w" "Определение слова" entry (file "words.org")
+	   "* %^{Слово}\n%?")
+	  ("j" "Дневник" entry (file+olp+datetree "journal.org")
+	   "* %^{Title}\n:PROPERTIES:\n:TIME: %<%H:%M:%S>\n:END:\n%?\n"))))
 #+end_src
-**** ID
+****** Table
+#+begin_src elisp
+(use-package org-table
+  :ensure nil
+  :hook ((before-save . org-table-recalculate-buffer-tables))
+  :bind (:map org-mode-map
+	      ("C-c t" . nil)
+	      ("C-c t t" . org-table-create)
+	      ("C-c t c" . org-table-insert-column)
+	      ("C-c t C" . org-table-delete-column)
+	      ("C-c t h" . org-table-insert-hline)
+	      ("C-c t r" . org-table-insert-row))
+  )
+#+end_src
+****** ID
 #+begin_src elisp
 (use-package org-id
   :ensure nil
   :config
   (setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id
-        org-id-method 'org
-        org-id-link-consider-parent-id t)
+	org-id-method 'org
+	org-id-link-consider-parent-id t)
   )
 #+end_src
-**** Agenda
+****** Agenda
 #+begin_src elisp
 (use-package org-agenda
   :ensure nil)
 #+end_src
-**** Export
+****** Export
 #+begin_src elisp
 (use-package ox
   :ensure nil
   :config
   (setq org-export-coding-system 'utf-8))
 #+end_src
-**** Babel
+****** Babel
 #+begin_src elisp
 (use-package ob
   :ensure nil
@@ -231,82 +316,7 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
      (python . t)
      )))
 #+end_src
-*** Org-roam                                                       :org:roam:
-#+begin_src elisp
-(use-package org-roam
-  :after org
-  :hook (org-roam-post-node-insert . org-roam-db-sync)
-  :bind (("C-c n i" . org-roam-node-insert)
-         ("C-c n f" . org-roam-node-find)
-         ("C-c r b" . org-roam-buffer-toggle)
-         ("C-c r c" . org-roam-capture))
-  :init
-  (let* ((dir (file-truename "~/org-roam")))
-    (unless (file-exists-p dir)
-      (make-directory dir))
-    (setq org-roam-directory dir))
-  (org-roam-db-autosync-mode 1)
-  :config
-  ;; garbage collection
-  (setq org-roam-db-gc-threshold most-positive-fixnum)
-
-  ;; enable completion
-  (setq org-roam-completion-everywhere t)
-
-  ;; display buffer
-  (add-to-list 'display-buffer-alist
-               '("\\*org-roam\\*"
-                 (display-buffer-in-side-window)
-                 (side . right)
-                 (slot . 0)
-                 (window-width . 0.33)
-                 (window-parameters . ((no-other-window . t)))))
-
-  ;; org-roam node display
-  (setq org-roam-node-display-template
-        (concat "${title:*} "
-                (propertize "${tags:20}" 'face 'org-tag)))
-
-  ;; Disable automatic update of the database on save
-  (setq org-roam-db-update-on-save nil)
-
-  ;; org-roam capture templates
-  (setq org-roam-capture-templates
-        '(("n" "note" plain "%?"
-           :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
-                              "#+title: ${title}\n")
-           :unnarrowed t)))))
-#+end_src
-**** Org-roam-protocol
-#+begin_src elisp
-(use-package org-roam-protocol
-  :ensure nil
-  :after org-roam)
-#+end_src
-**** Org-roam-dailies
-#+begin_src elisp
-(use-package org-roam-dailies
-  :ensure nil
-  :after org-roam
-  :bind (("C-c d t" . org-roam-dailies-capture-today)
-         ("C-c d d" . org-roam-dailies-find-directory)
-         ("C-c d g n" . org-roam-dailies-goto-next-note)
-         ("C-c d g t" . org-roam-dailies-goto-today)
-         )
-  :config
-  (let* ((dir (expand-file-name "dailies" org-roam-directory)))
-    (unless (file-exists-p dir)
-      (make-directory dir))
-    (setq org-roam-dailies-directory dir)
-
-    ;; org-roam dailies capture templates
-    (setq org-roam-dailies-capture-templates
-          '(("d" "daily" entry
-             "* %?"
-             :target (file+head "%<%Y-%m-%d>.org"
-                                "#+title: %<%Y-%m-%d>\n"))))))
-#+end_src
-*** Ibuffer
+***** Ibuffer
 #+begin_src elisp
 (use-package ibuffer
   :ensure nil
@@ -321,8 +331,8 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
 
   ;; Display
   (setq ibuffer-use-other-window nil
-        ibuffer-show-empty-filter-groups nil
-        ibuffer-display-summary nil)
+	ibuffer-show-empty-filter-groups nil
+	ibuffer-display-summary nil)
 
   ;; Sorting
   (setq ibuffer-default-sorting-mode 'filename/process)
@@ -333,68 +343,74 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
   ;; Header line
   (setq ibuffer-use-header-line t))
 #+end_src
-*** Minibuffer
+***** Minibuffer
 #+begin_src elisp
 (use-package minibuffer
   :ensure nil
   :hook (minibuffer-setup . minibuffer-depth-indicate-mode)
   :bind (:map minibuffer-local-map
-              ("<TAB>" . minibuffer-choose-completion)
-              ("C-n" . minibuffer-next-completion)
-              ("C-p" . minibuffer-previous-completion)
-              ("M-n" . next-history-element)
-              ("M-p" . previous-history-element))
+	      ("<TAB>" . minibuffer-choose-completion)
+	      ("C-n" . minibuffer-next-completion)
+	      ("C-p" . minibuffer-previous-completion)
+	      ("M-n" . next-history-element)
+	      ("M-p" . previous-history-element))
   :config
   (setq minibuffer-visible-completions t
-        read-minibuffer-restore-windows nil
-        enable-recursive-minibuffers t)
+	read-minibuffer-restore-windows nil
+	enable-recursive-minibuffers t)
 
   ;; Completions format
   (setq completions-format 'one-column)
 
   ;; Completion settings
   (setq completions-detailed t
-        completions-auto-help t
-        completion-ignore-case t
-        completions-show-inline-help nil
-        completions-show-help nil
-        completion-auto-select nil
-        completions-max-height 12
-        completions-sort 'historical
-        completion-cycle-threshold 3
-        completion-eager-update t
-        completion-eager-display t)
+	completions-auto-help t
+	completion-ignore-case t
+	completions-show-inline-help nil
+	completions-show-help nil
+	completion-auto-select nil
+	completions-max-height 12
+	completions-sort 'historical
+	completion-cycle-threshold 3
+	completion-eager-update t
+	completion-eager-display t)
 
   ;; Buffer
   (setq read-buffer-completion-ignore-case t
-        read-file-name-completion-ignore-case t))
+	read-file-name-completion-ignore-case t))
 #+end_src
-*** Completion preview
+***** Completion preview
 #+begin_src elisp
 (use-package completion-preview
-  :init
-  (completion-preview-mode 1)
-  :bind ((:map completion-preview-active-mode-map
-               ("M-i" . completion-preview-insert-word)
-               ("M-n" . completion-preview-next-candidate)
-               ("M-p" . completion-preview-prev-candidate)
-               ("M-<return>" . completion-preview-insert)
-               ("<TAB>" . completion-preview-complete))))
+  :hook (prog-mode . completion-preview-mode)
+  :bind (( :map completion-preview-active-mode-map
+	   ("M-i" . completion-preview-insert-word)
+	   ("M-n" . completion-preview-next-candidate)
+	   ("M-p" . completion-preview-prev-candidate)
+	   ("M-<return>" . completion-preview-insert)
+	   ("<TAB>" . completion-preview-complete))))
 #+end_src
-*** Dired
+***** Dired
 #+begin_src elisp
 (use-package dired
   :ensure nil
   :bind (("C-x d" . dired-jump)
-         :map dired-mode-map
-         ("/" . dired-mark-files-regexp)
-         ("0" . dired-hide-details-mode)
-         ("b" . dired-do-byte-compile)
-         ("!" . dired-do-async-shell-command))
+	 :map dired-mode-map
+	 ("/" . dired-mark-files-regexp)
+	 ("0" . dired-hide-details-mode)
+	 ("b" . dired-do-byte-compile)
+	 ("!" . dired-do-async-shell-command))
   :config
   (setq dired-dwim-target t))
 #+end_src
-*** Tramp
+***** Browse-url
+#+begin_src elisp
+(use-package browse-url
+  :ensure nil
+  :config
+  (setq browse-url-browser-function #'eww-browse-url))
+#+end_src
+***** Tramp
 #+begin_src elisp
 (use-package tramp
   :ensure nil
@@ -404,19 +420,162 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
 
   ;; Remoting
   (setq remote-file-name-inhibit-locks t
-        remote-file-name-inhibit-auto-save-visited t)
+	remote-file-name-inhibit-auto-save-visited t)
 
   ;; SSH settings
   (setq tramp-default-method "sshx"
-        tramp-use-scp-direct-remote-copying t))
+	tramp-use-scp-direct-remote-copying t))
 #+end_src
-** External
-*** ef-themes
+**** External
+***** Newsticker
+#+begin_src elisp
+(use-package newsticker
+  :ensure nil
+  :hook ((newsticker-mode . imenu-add-menubar-index))
+  :bind (("C-. n" . newsticker-show-news))
+  :config
+  (setq newsticker-frontend 'newsticker-plainview)
+
+  ;; UI
+  (setq newsticker-statistics-format "old %o, new %n")
+  (setq newsticker-date-format "%a, %Y/%m/%d")
+  (setq newsticker-heading-format "%t %s")
+  (setq newsticker-retrieval-interval 10)
+
+  (setq newsticker-url-list-defaults nil)
+
+  ;; Groups
+  (setq newsticker-groups
+	'(("Экономика"
+	   ("МосБиржа: Итоги торгов"))))
+  (setq newsticker-url-list
+	'(("МосБиржа: Итоги торгов" "https://www.moex.com/export/news.aspx?cat=100" nil nil nil)))
+  )
+#+end_src
+***** Org-roam                                                     :org:roam:
+#+begin_src elisp
+(use-package org-roam
+  :after org
+  :hook ((org-roam-capture-new-node . org-roam-db-sync))
+  :bind (("C-c n i" . org-roam-node-insert)
+	 ("C-c n f" . org-roam-node-find)
+	 ("C-c C-n" . org-roam-node-visit)
+	 ("C-c r b" . org-roam-buffer-toggle)
+	 ("C-c r c" . org-roam-capture)
+	 )
+  :init
+  (let* ((dir (expand-file-name "roam" org-directory)))
+    (unless (file-exists-p dir)
+      (make-directory dir))
+    (setq org-roam-directory dir))
+  (org-roam-db-autosync-mode 1)
+  :config
+  ;; garbage collection
+  (setq org-roam-db-gc-threshold most-positive-fixnum)
+
+  ;; enable completion
+  (setq org-roam-completion-everywhere t)
+
+  ;; display buffer
+  (add-to-list 'display-buffer-alist
+	       '("\\*org-roam\\*"
+		 (display-buffer-in-side-window)
+		 (side . right)
+		 (slot . 0)
+		 (window-width . 0.33)
+		 (window-parameters . ((no-other-window . t)))))
+
+  ;; org-roam node display
+  (setq org-roam-node-display-template
+	(concat "${title:*} "
+		(propertize "${tags:20}" 'face 'org-tag)))
+
+  ;; Disable automatic update of the database on save
+  (setq org-roam-db-update-on-save nil))
+#+end_src
+****** Org-roam-capture
+#+begin_src elisp
+(use-package org-roam-capture
+  :ensure nil
+  :after org-roam
+  :bind (("C-. C-." . org-roam-capture)
+	 ("C-. C-," . org-roam-ref))
+  :config
+  ;; org-roam capture templates
+  (make-directory (expand-file-name "node" org-roam-directory) t)
+  (setq org-roam-capture-templates
+	'(("n" "node" plain "%?"
+	   :target (file+head "node/%<%Y%m%d%H%M%S>-${slug}.org"
+			      "#+title: ${title}\n")
+	   :unnarrowed t)))
+
+  ;; org-roam ref templates
+  (make-directory (expand-file-name "ref" org-roam-directory) t)
+  (setq org-roam-capture-ref-templates
+	'(("r" "ref" plain "%?"
+	   :target (file+head "ref/%<%Y%m%d%H%M%S>-${slug}.org"
+			      "#+title: ${title}\n")
+	   :unnarrowed t)))
+  )
+#+end_src
+****** Org-roam-protocol
+#+begin_src elisp
+(use-package org-roam-protocol
+  :ensure nil
+  :after org-roam)
+#+end_src
+****** Org-roam-dailies
+#+begin_src elisp
+(use-package org-roam-dailies
+  :ensure nil
+  :after org-roam
+  :bind (("C-<f5>" . org-roam-dailies-capture-today)
+	 ("C-c d d" . org-roam-dailies-find-directory)
+	 ("C-c d g n" . org-roam-dailies-goto-next-note)
+	 ("C-c d g t" . org-roam-dailies-goto-today)
+	 )
+  :config
+  (let* ((dir (expand-file-name "dailies" org-roam-directory)))
+    (unless (file-exists-p dir)
+      (make-directory dir))
+    (setq org-roam-dailies-directory dir)
+
+    ;; org-roam dailies capture templates
+    (setq org-roam-dailies-capture-templates
+	  '(("d" "daily" entry
+	     "* %?"
+	     :target (file+head "%<%Y-%m-%d>.org"
+				"#+title: %<%Y-%m-%d>\n"))))))
+#+end_src
+***** ef-themes
 #+begin_src elisp
 (use-package ef-themes
   :init (load-theme 'ef-day t))
+#+end_src
+***** lsp-mode
+#+begin_src elisp
+(use-package lsp-mode
+  :hook ((c-mode . lsp-deferred)
+	 (c++-mode . lsp-deferred)
+	 (python-mode . lsp-deferred)
+	 (before-save . lsp-format-buffer))
+  :init
+  (setq lsp-auto-guess-root t)
+  :config
+  ;; Processing
+  (setq lsp-idle-delay 0.5
+	lsp-enable-indentation t
+	lsp-file-watch-threshold 500
+	lsp-prefer-flymake nil
+	lsp-enable-imenu t
+	lsp-log-io nil)
+
+  ;; Breadcrumb
+  (setq lsp-headerline-breadcrumb-enable t)
+  )
 #+end_src
 * Sources
 1. https://kristofferbalintona.me/articles/surprisingly-emacs-on-android-is-pretty-good/
 2. https://www.orgroam.com/manual.html
 3. https://mstempl.netlify.app/post/emacs-on-android/
+4. https://tychoish.com/post/emacs-and-lsp-mode/
