@@ -25,7 +25,8 @@
 		    (undecorated . t)))))
 
 (setq site-run-file nil
-      custom-file nil)
+      custom-file nil
+      custom-safe-themes t)
 
 (setq scroll-step 1)
 
@@ -104,5 +105,8 @@
 	    (gc-cons-percentage 0.1)))
 
 (run-with-idle-timer 5 t #'garbage-collect)
+
+;; Custom file
+(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 
 (setenv "LSP_USE_PLISTS" "true")
