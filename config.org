@@ -26,102 +26,68 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
   (eq 'system-type 'windows-nt))
 #+end_src
 * Package management                                                :package:
-** Elpaca
-*** Installer
+** Package.el
 #+begin_src elisp
-(defvar elpaca-installer-version 0.12)
-(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
-(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
-(defvar elpaca-sources-directory (expand-file-name "sources/" elpaca-directory))
-(defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
-			      :ref nil :depth 1 :inherit ignore
-			      :files (:defaults "elpaca-test.el" (:exclude "extensions"))
-			      :build (:not elpaca-activate)))
-(let* ((repo  (expand-file-name "elpaca/" elpaca-sources-directory))
-       (build (expand-file-name "elpaca/" elpaca-builds-directory))
-       (order (cdr elpaca-order))
-       (default-directory repo))
-  (add-to-list 'load-path (if (file-exists-p build) build repo))
-  (unless (file-exists-p repo)
-    (make-directory repo t)
-    (when (<= emacs-major-version 28) (require 'subr-x))
-    (condition-case-unless-debug err
-	(if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
-		  ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
-						  ,@(when-let* ((depth (plist-get order :depth)))
-						      (list (format "--depth=%d" depth) "--no-single-branch"))
-						  ,(plist-get order :repo) ,repo))))
-		  ((zerop (call-process "git" nil buffer t "checkout"
-					(or (plist-get order :ref) "--"))))
-		  (emacs (concat invocation-directory invocation-name))
-		  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
-					"--eval" "(byte-recompile-directory \".\" 0 'force)")))
-		  ((require 'elpaca))
-		  ((elpaca-generate-autoloads "elpaca" repo)))
-	    (progn (message "%s" (buffer-string)) (kill-buffer buffer))
-	  (error "%s" (with-current-buffer buffer (buffer-string))))
-      ((error) (warn "%s" err) (delete-directory repo 'recursive))))
-  (unless (require 'elpaca-autoloads nil t)
-    (require 'elpaca)
-    (elpaca-generate-autoloads "elpaca" repo)
-    (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
-(add-hook 'after-init-hook #'elpaca-process-queues)
-(elpaca `(,@elpaca-order))
-#+end_src
-*** elpaca-use-package
-#+begin_src elisp
-(elpaca elpaca-use-package
-  (elpaca-use-package-mode))
-(setq use-package-always-ensure t
-      use-package-compute-statistics t)
-#+end_src
-*** elpaca-no-symlink-mode
-#+begin_src elisp
-(when (eq system-type 'windows-nt)
-  (elpaca-no-symlink-mode))
+;; Initialize package.el
+(require 'package)
+
+;; Add package archives (e.g., MELPA)
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+(add-to-list 'package-archives '("gnu" . "https://elpa.gnu.org/packages/") t)
+(add-to-list 'package-archives '("nongnu" . "https://nongnu.org") t)
+
+;; Initialize packages (if not already done in early-init.el)
+(package-initialize)
+
+;; Refresh archive contents if they haven't been loaded yet
+(unless package-archive-contents
+  (package-refresh-contents))
 #+end_src
 *** Packages
 **** Builtin
 ***** Emacs                                                           :emacs:
 #+begin_src elisp
-(use-package emacs
-  :init
-  (global-visual-line-mode 1)
-  (global-auto-revert-mode 1)
-  :bind (("M-SPC" . toggle-input-method)
-	 ("C-g" . keyboard-escape-quit)
-	 ("C-. v" . view-mode)
-	 )
-  :config
-  ;; Unbind keys
-  (unbind-key "C-v")
-  (unbind-key "<insert>")
-  (unbind-key "<insertchar>")
+  (use-package emacs
+    :ensure nil
+    :init
+    (global-visual-line-mode 1)
+    (global-auto-revert-mode 1)
+    :bind (("M-SPC" . toggle-input-method)
+	   ("C-g" . keyboard-escape-quit)
+	   ("C-. v" . view-mode)
+	   )
+    :config
+    ;; Unbind keys
+    (unbind-key "C-v")
+    (unbind-key "<insert>")
+    (unbind-key "<insertchar>")
 
-  ;; Display buffer
-  (setq display-buffer-alist
-	'(("\\*Help"
-	   (display-buffer-same-window))
-	  (("\\*Warnings")
-	   (display-buffer-no-window))
-	  ("\\*Man"
-	   (display-buffer-same-window))
-	  ("\\*Async .*\\*"
-	   (display-buffer-no-window))))
+    ;; Display buffer
+    (setq display-buffer-alist
+	  '(("\\*Help"
+	     (display-buffer-same-window))
+	    (("\\*Warnings")
+	     (display-buffer-no-window))
+	    ("\\*Man"
+	     (display-buffer-same-window))
+	    ("\\*Async .*\\*"
+	     (display-buffer-no-window))))
 
-  ;; Backup files
-  (let* ((backup-dir (expand-file-name "backup" user-emacs-directory)))
-    (setq delete-old-version t
-	  backup-directory-alist
-	  `(("." . ,backup-dir))))
+    ;; Backup files
+    (let* ((backup-dir (expand-file-name "backup" user-emacs-directory)))
+      (setq kept-new-versions 2
+	    kept-old-versions 2
+	    delete-old-versions t
+	    backup-directory-alist
+	    `(("." . ,backup-dir))))
 
-  ;; Android-specific
-  (when (and (= emacs-major-version 30) (android-p))
-    (touch-screen-set-point-commands (mouse-set-point))
-    (setq tool-bar-position 'bottom)
-    (setq touch-screen-display-keyboard t))
+    ;; Android-specific
+    (when (and (= emacs-major-version 30) (android-p))
+      (touch-screen-set-point-commands (mouse-set-point))
+      (setq tool-bar-position 'bottom)
+      (setq touch-screen-display-keyboard t))
 
-  )
+    )
 #+end_src
 ***** View-mode                                                        :view:
 #+begin_src elisp
@@ -185,11 +151,13 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
 ***** Whitespace
 #+begin_src elisp
 (use-package whitespace
+  :ensure nil
   :hook (after-save . whitespace-cleanup))
 #+end_src
 ***** Saveplace
 #+begin_src elisp
 (use-package saveplace
+  :ensure nil
   :init (save-place-mode 1)
   :config
   (setq save-place-file (expand-file-name "saveplace" default-directory)
@@ -199,30 +167,34 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
 ***** Recentf
 #+begin_src elisp
 (use-package recentf
+  :ensure nil
   :init (recentf-mode 1))
 #+end_src
 ***** Savehist
 #+begin_src elisp
-(use-package savehist
-  :init (savehist-mode 1)
-  :config
-  ;; Savehist file
-  (setq savehist-file (expand-file-name ".history" default-directory))
+  (use-package savehist
+    :ensure nil
+    :init (savehist-mode 1)
+    :config
+    ;; Savehist file
+    (setq savehist-file (expand-file-name ".history" default-directory))
 
-  ;; Autosave interval
-  (setq savehist-autosave-interval 60)
+    ;; Autosave interval
+    (setq savehist-autosave-interval 60)
 
-  ;; History length
-  (setq history-length 100))
+    ;; History length
+    (setq history-length 100))
 #+end_src
 ***** Electric pair
 #+begin_src elisp
 (use-package electric
+  :ensure nil
   :init (electric-pair-mode 1))
 #+end_src
 ***** Org                                                               :org:
 #+begin_src elisp
 (use-package org
+  :ensure nil
   :bind (:map org-mode-map
 	      ("C-c I" . org-indent-block)
 	      ("C-c e" . org-babel-execute-buffer))
@@ -382,6 +354,7 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
 ***** Completion preview
 #+begin_src elisp
 (use-package completion-preview
+  :ensure nil
   :hook (prog-mode . completion-preview-mode)
   :bind (( :map completion-preview-active-mode-map
 	   ("M-i" . completion-preview-insert-word)
@@ -426,7 +399,6 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
   (setq tramp-default-method "sshx"
 	tramp-use-scp-direct-remote-copying t))
 #+end_src
-**** External
 ***** Newsticker
 #+begin_src elisp
 (use-package newsticker
@@ -445,10 +417,18 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
   (setq newsticker-url-list-defaults nil)
   )
 #+end_src
+
+**** External
+***** ef-themes
+#+begin_src elisp
+(use-package ef-themes
+  :ensure t
+  :config (load-theme 'ef-day t))
+#+end_src
 ***** Org-roam                                                     :org:roam:
 #+begin_src elisp
 (use-package org-roam
-  :after org
+  :ensure t
   :hook ((org-roam-capture-new-node . org-roam-db-sync))
   :bind (("C-c n i" . org-roam-node-insert)
 	 ("C-c n f" . org-roam-node-find)
@@ -540,32 +520,28 @@ git clone https://github.com/gramevar/dotemacs ~/.config/emacs
 	     :target (file+head "%<%Y-%m-%d>.org"
 				"#+title: %<%Y-%m-%d>\n"))))))
 #+end_src
-***** ef-themes
-#+begin_src elisp
-(use-package ef-themes
-  :init (load-theme 'ef-day t))
-#+end_src
 ***** lsp-mode
 #+begin_src elisp
-(use-package lsp-mode
-  :hook ((c-mode . lsp-deferred)
-	 (c++-mode . lsp-deferred)
-	 (python-mode . lsp-deferred)
-	 (before-save . lsp-format-buffer))
-  :init
-  (setq lsp-auto-guess-root t)
-  :config
-  ;; Processing
-  (setq lsp-idle-delay 0.5
-	lsp-enable-indentation t
-	lsp-file-watch-threshold 500
-	lsp-prefer-flymake nil
-	lsp-enable-imenu t
-	lsp-log-io nil)
+  (use-package lsp-mode
+    :ensure t
+    :hook ((c-mode . lsp-deferred)
+	   (c++-mode . lsp-deferred)
+	   (python-mode . lsp-deferred)
+	   (before-save . lsp-format-buffer))
+    :init
+    (setq lsp-auto-guess-root t)
+    :config
+    ;; Processing
+    (setq lsp-idle-delay 0.5
+	  lsp-enable-indentation t
+	  lsp-file-watch-threshold 500
+	  lsp-prefer-flymake nil
+	  lsp-enable-imenu t
+	  lsp-log-io nil)
 
-  ;; Breadcrumb
-  (setq lsp-headerline-breadcrumb-enable t)
-  )
+    ;; Breadcrumb
+    (setq lsp-headerline-breadcrumb-enable t)
+    )
 #+end_src
 * Sources
 1. https://kristofferbalintona.me/articles/surprisingly-emacs-on-android-is-pretty-good/
